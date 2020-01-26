@@ -15,7 +15,7 @@ public class Test {
 //		Main.fixBug(buggyProjectsPath, defects4jPath, projectName);
 		
 		Configuration.knownBugPositions = "../../eclipse-fault-localization/Data/BugPositions.txt";
-		Main_Pos.fixBug(buggyProjectsPath, defects4jPath, projectName);
+		// Main_Pos.fixBug(buggyProjectsPath, defects4jPath, projectName);
 	}
 	
 }

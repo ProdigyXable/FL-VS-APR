@@ -2,14 +2,13 @@ package edu.lu.uni.serval.utils;
 
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.commons.lang3.StringUtils;
 
 public class PathUtils {
 
 	public static ArrayList<String> getSrcPath(String bugProject) {
 		ArrayList<String> path = new ArrayList<String>();
-		String[] words = bugProject.split("_");
+		String[] words = bugProject.split("-");
 		String projectName = words[0];
 		int bugId = Integer.parseInt(words[1]);
 		if (projectName.equals("Math")) {

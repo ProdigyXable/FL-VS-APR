@@ -1,10 +1,8 @@
 package edu.lu.uni.serval.bug.fixer;
 
-import java.util.List;
-
-import edu.lu.uni.serval.bug.fixer.AbstractFixer.SuspCodeNode;
 import edu.lu.uni.serval.dataprepare.DataPreparer;
 import edu.lu.uni.serval.utils.SuspiciousPosition;
+import java.util.List;
 
 /**
  * Fixer Interface.

@@ -1,17 +1,15 @@
 package edu.lu.uni.serval.bug.fixer;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import edu.lu.uni.serval.config.Configuration;
 import edu.lu.uni.serval.utils.FileHelper;
 import edu.lu.uni.serval.utils.SuspiciousCodeParser;
 import edu.lu.uni.serval.utils.SuspiciousCodeParser.BuggyMethod;
 import edu.lu.uni.serval.utils.SuspiciousPosition;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Automated Program Repair Tool: kPAR.
@@ -25,12 +23,12 @@ public class Method_kParFixer extends kParFixer {
 	
 	private static Logger log = LoggerFactory.getLogger(Method_kParFixer.class);
 	
-	public Method_kParFixer(String path, String projectName, int bugId, String defects4jPath) {
-		super(path, projectName, bugId, defects4jPath);
+	public Method_kParFixer(String path, String projectName, int bugId, String defects4jPath, String pm, String pt, String pf) {
+		super(path, projectName, bugId, defects4jPath, pm, pt, pf);
 	}
 	
-	public Method_kParFixer(String path, String metric, String projectName, int bugId, String defects4jPath) {
-		super(path, metric, projectName, bugId, defects4jPath);
+	public Method_kParFixer(String path, String metric, String projectName, int bugId, String defects4jPath, String pm, String pt, String pf) {
+		super(path, metric, projectName, bugId, defects4jPath, pm, pt, pf);
 	}
 
 	@Override
