@@ -22,18 +22,22 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import utdallas.edu.profl.replicate.patchcategory.DefaultPatchCategories;
-import utdallas.edu.profl.replicate.util.MethodLineCoverageInterface;
+import utdallas.edu.profl.replicate.patchcategory.PatchCategory;
 import utdallas.edu.profl.replicate.util.ProflResultRanking;
-import utdallas.edu.profl.replicate.util.TestLineCoverageInterface;
 import utdallas.edu.profl.replicate.util.XiaMethodLineCoverage;
 import utdallas.edu.profl.replicate.util.XiaTestLineCoverage;
+import utdallas.edu.profl.replicate.util.interfaces.MethodLineCoverageInterface;
+import utdallas.edu.profl.replicate.util.interfaces.TestLineCoverageInterface;
 
 /**
  * Abstract Fixer.
@@ -75,6 +79,7 @@ public abstract class AbstractFixer implements IFixer {
     public TestLineCoverageInterface proflTest;
     public ProflResultRanking proflRanking;
     public boolean proflEnabled = false;
+    private int patchAttempts = 0;
 
     public AbstractFixer(String path, String projectName, int bugId, String defects4jPath, String pm, String pt, String pf) {
         this.path = path;
@@ -324,27 +329,25 @@ public abstract class AbstractFixer implements IFixer {
 
             // PROFL-SPECIFIC-START
             if (this.proflEnabled) {
-                int ff = 0;
-                int fp = 0;
-                int pf = 0;
-                int pp = 0;
+                Set<String> ff = new TreeSet();
+                Set<String> fp = new TreeSet(failedTestCasesStrList);
+                Set<String> pf = new TreeSet();
+                Set<String> pp = new TreeSet();
 
                 for (String failingTest : failedTestsAfterFix) {
                     failingTest = failingTest.replace("- ", "").trim();
                     if (this.failedTestCasesStrList.contains(failingTest)) {
                         log.info(String.format("Fail->Fail test case ->%s", failingTest));
-                        ff++;
+                        ff.add(failingTest);
 
-                        failPassTests.remove(failingTest);
+                        fp.remove(failingTest);
                     } else {
                         log.info(String.format("Pass->Fail test case ->%s", failingTest));
-                        pf++;
+                        pf.add(failingTest);
                     }
                 }
 
-                fp = failPassTests.size();
-
-                log.info(String.format("Patch test results ff=%d, fp=%d, pf=%d, pp=Unknown", ff, fp, pf));
+                log.info(String.format("Patch test results ff=%d, fp=%d, pf=%d, pp=Unknown", ff.size(), fp.size(), pf.size()));
                 String qualifiedName = scn.suspiciousJavaFile.replace(".java", "").replace("/", ".");
                 String mutatedMethod = proflMethod.lookup(qualifiedName, scn.buggyLine);
 
@@ -371,25 +374,41 @@ public abstract class AbstractFixer implements IFixer {
 
                     m.put(mutatedMethod, sus);
 
-                    if (fp > 0 && pf == 0) {
-                        log.info("[ProFL] CleanFix found");
-                        proflRanking.addCategoryEntry(DefaultPatchCategories.CLEAN_FIX, m);
-                    } else if (fp > 0 && pf > 0) {
-                        log.info("[ProFL] NoisyFix found");
-                        proflRanking.addCategoryEntry(DefaultPatchCategories.NOISY_FIX, m);
-                    } else if (fp == 0 && pf == 0) {
-                        log.info("[ProFL] NoneFix found");
-                        proflRanking.addCategoryEntry(DefaultPatchCategories.NONE_FIX, m);
+                    PatchCategory pc;
+
+                    if (fp.size() > 0 && pf.size() == 0) {
+                        if (ff.size() == 0) {
+                            pc = DefaultPatchCategories.CLEAN_FIX_FULL;
+                        } else {
+                            pc = DefaultPatchCategories.CLEAN_FIX_PARTIAL;
+                        }
+                    } else if (fp.size() > 0 && pf.size() > 0) {
+                        if (ff.size() == 0) {
+                            pc = DefaultPatchCategories.NOISY_FIX_FULL;
+                        } else {
+                            pc = DefaultPatchCategories.NOISY_FIX_PARTIAL;
+                        }
+                    } else if (fp.size() == 0 && pf.size() == 0) {
+                        pc = DefaultPatchCategories.NONE_FIX;
                     } else {
-                        log.info("[ProFL] NegFix found");
-                        proflRanking.addCategoryEntry(DefaultPatchCategories.NEG_FIX, m);
+                        pc = DefaultPatchCategories.NEG_FIX;
                     }
+
+                    log.info(String.format("Detected patch: %s", pc.getCategoryName()));
+                    this.patchAttempts++;
+
+                    proflRanking.addCategoryEntry(pc, m);
+
+                    saveProflInfo();
+                    savePatchInfo(patch, qualifiedName, mutatedMethod, scn);
+                    saveTestInfo(ff, fp, pf, qualifiedName, mutatedMethod, pc);
+
                 }
 
                 log.debug(String.format("Mutated = %s in %s:%d", mutatedMethod, qualifiedName, scn.buggyLine));
             }
-
             // PROFL-SPECIFIC-END
+
             if (errorTestAfterFix < minErrorTest) {
                 List<String> tmpFailedTestsAfterFix = new ArrayList<>();
                 tmpFailedTestsAfterFix.addAll(failedTestsAfterFix);
@@ -514,40 +533,60 @@ public abstract class AbstractFixer implements IFixer {
         patch.setFixedCodeStr1(patchCode);
     }
 
-    public void saveGeneralSbfl() {
-        Collection<String> messages = this.proflRanking.outputSbflSus();
-        File f = new File("ProFL-kParFixer" + File.separator + this.buggyProject + File.separator + "generalSusInfo.profl");
-
-        FileHelper.createDirectory(f.getParent());
-
-        try {
-            try (BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
-                for (String s : messages) {
-                    bw.write(s);
-                    bw.newLine();
-                }
-            }
-            log.info("Profl information saved to " + f.getAbsolutePath());
-        } catch (Exception e) {
-            log.debug("ProFL general sbfl information failed to save");
-        }
+    private void saveProflInfo() {
+        this.writeListToFile(this.proflRanking.outputSbflSus(), new File(String.format("kpar-output/%s/generalSusInfo.profl", this.buggyProject)));
+        this.writeListToFile(this.proflRanking.outputProflResults(), new File(String.format("kpar-output/%s/aggregatedSusInfo.profl", this.buggyProject)));
+        this.writeListToFile(this.proflRanking.outputProflCatInfo(), new File(String.format("kpar-output/%s/category_information.profl", this.buggyProject)));
     }
 
-    public void saveProflRanking() {
-        Collection<String> messages = this.proflRanking.outputProflResults();
-        File f = new File("ProFL-kParFixer" + File.separator + this.buggyProject + File.separator + "aggregatedSusInfo.profl");
+    private void saveTestInfo(Set<String> ff, Set<String> fp, Set<String> pf, String qualifiedName, String mutatedMethod, PatchCategory pc) {
+        Collection<String> messages = new LinkedList();
+        messages.add(String.format("ff=%d, fp=%d, pf=%d, pp=Unknown", ff.size(), fp.size(), pf.size()));
+        messages.add(String.format("Patch Category: %s", pc.getCategoryName()));
+        messages.add(String.format("Modified method: %s", mutatedMethod));
+        messages.add("----------------");
 
-        try {
-            try (BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
-                for (String s : messages) {
-                    bw.write(s);
-                    bw.newLine();
-                }
-            }
-            log.info("Profl information saved to " + f.getAbsolutePath());
-        } catch (Exception e) {
-            log.debug("ProFL aggregaed sbfl information failed to save");
+        for (String s : ff) {
+            messages.add(String.format("[Fail->Fail] %s", s));
         }
+        for (String s : fp) {
+            messages.add(String.format("[Fail->Pass] %s", s));
+        }
+        for (String s : pf) {
+            messages.add(String.format("[Pass->Fail] %s", s));
+        }
+
+        this.writeListToFile(messages, new File(String.format("kpar-output/%s/tests/%d.tests", this.buggyProject, this.patchAttempts)));
+    }
+
+    private void savePatchInfo(Patch patch, String qualifiedName, String mutatedMethod, SuspCodeNode scn) {
+        Collection<String> messages = new LinkedList();
+
+        messages.add(String.format("Class name: %s", qualifiedName));
+        messages.add(String.format("Modified method: %s", mutatedMethod));
+        messages.add(String.format("Modified line: %d", scn.buggyLine));
+        messages.add("----------------");
+
+        messages.addAll(Arrays.asList(patch.getFixedCodeStr1().split("\n")));
+
+        if (patch.getFixedCodeStr2() != null) {
+            messages.addAll(Arrays.asList(patch.getFixedCodeStr2().split("\n")));
+        }
+
+        this.writeListToFile(messages, new File(String.format("kpar-output/%s/patches/%d.patch", this.buggyProject, this.patchAttempts)));
+    }
+
+    private void writeListToFile(Collection<String> messages, File f) {
+        f.getParentFile().mkdirs();
+        try (BufferedWriter bw = new BufferedWriter(new FileWriter(f))) {
+            for (String s : messages) {
+                bw.write(s);
+                bw.newLine();
+            }
+        } catch (IOException ex) {
+            log.info("Could not write to file :" + f.getAbsolutePath());
+        }
+
     }
 }
 

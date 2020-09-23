@@ -82,10 +82,6 @@ public class Main_Pos {
             return;
         }
 
-        if (fixer.proflEnabled) {
-            fixer.saveGeneralSbfl();
-        }
-
         fixer.metric = Configuration.faultLocalizationMetric;
         fixer.dataType = dataType;
         if (Integer.MAX_VALUE == fixer.minErrorTest) {
@@ -94,10 +90,6 @@ public class Main_Pos {
         }
 
         fixer.fixProcess();
-
-        if (fixer.proflEnabled) {
-            fixer.saveProflRanking();
-        }
 
         int fixedStatus = fixer.fixedStatus;
         switch (fixedStatus) {

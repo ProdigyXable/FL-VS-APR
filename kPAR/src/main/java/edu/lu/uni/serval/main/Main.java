@@ -45,10 +45,6 @@ public class Main {
 
         AbstractFixer fixer = new kParFixer(buggyProjectsPath, projectName, bugId, defects4jPath, pm, pt, pf);
 
-        if (fixer.proflEnabled) {
-            fixer.saveGeneralSbfl();
-        }
-
         fixer.metric = Configuration.faultLocalizationMetric;
         fixer.dataType = dataType;
         fixer.suspCodePosFile = new File(suspiciousFileStr);
@@ -58,10 +54,6 @@ public class Main {
         }
 
         fixer.fixProcess();
-
-        if (fixer.proflEnabled) {
-            fixer.saveProflRanking();
-        }
 
         int fixedStatus = fixer.fixedStatus;
         switch (fixedStatus) {

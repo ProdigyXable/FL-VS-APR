@@ -45,9 +45,6 @@ public class Main_NFL {
 
         AbstractFixer fixer = new kParFixer_NFL(buggyProjectsPath, projectName, bugId, defects4jPath, pm, pt, pf);
 
-        if (fixer.proflEnabled) {
-            fixer.saveGeneralSbfl();
-        }
         fixer.metric = Configuration.faultLocalizationMetric;
         fixer.dataType = dataType;
         fixer.suspCodePosFile = new File(suspiciousFileStr);
@@ -57,10 +54,6 @@ public class Main_NFL {
         }
 
         fixer.fixProcess();
-
-        if (fixer.proflEnabled) {
-            fixer.saveProflRanking();
-        }
 
         int fixedStatus = fixer.fixedStatus;
         switch (fixedStatus) {
